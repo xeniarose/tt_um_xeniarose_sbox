@@ -2,10 +2,10 @@
  * Copyright (c) 2024 Your Name
  * SPDX-License-Identifier: Apache-2.0
  */
-
+// `timescale 1ns / 1ps
 `default_nettype none
 
-module tt_um_example (
+module tt_um_xeniarose_sbox (
     input  wire [7:0] ui_in,    // Dedicated inputs
     output wire [7:0] uo_out,   // Dedicated outputs
     input  wire [7:0] uio_in,   // IOs: Input path
@@ -15,13 +15,155 @@ module tt_um_example (
     input  wire       clk,      // clock
     input  wire       rst_n     // reset_n - low to reset
 );
+  wire _unused = &{ena, 1'b0};
 
-  // All output pins must be assigned. If not used, assign to 0.
-  assign uo_out  = ui_in + uio_in;  // Example: ou_out is the sum of ui_in and uio_in
-  assign uio_out = 0;
-  assign uio_oe  = 0;
+  wire [5:0] io_addr = ui_in[5:0];
+  wire io_we = ui_in[6];
+  wire io_clk = ui_in[7];
 
-  // List all unused inputs to prevent warnings
-  wire _unused = &{ena, clk, rst_n, 1'b0};
+  reg io_ready;
+  reg trig;
+
+  assign uo_out[0] = io_ready;
+  assign uo_out[1] = io_we;
+  assign uo_out[2] = trig;
+
+  assign uo_out[7:3] = 5'h0;
+
+  assign uio_oe[0] = io_we;
+  assign uio_oe[1] = io_we;
+  assign uio_oe[2] = io_we;
+  assign uio_oe[3] = io_we;
+  assign uio_oe[4] = io_we;
+  assign uio_oe[5] = io_we;
+  assign uio_oe[6] = io_we;
+  assign uio_oe[7] = io_we;
+
+  reg [7:0] io_out;
+  assign uio_out = io_out;
+
+  (* mem2reg *)
+  reg [7:0] register_file [11:0];
+
+  reg [1:0] run_sbox;
+  reg run_sbox_next;
+
+  wire [7:0] sbox0_in;
+  wire [7:0] sbox0_out;
+  wire [7:0] sbox1_in;
+  wire [7:0] sbox1_out;
+  wire [7:0] sbox2_in;
+  wire [7:0] sbox2_out;
+  wire [7:0] sbox3_in;
+  wire [7:0] sbox3_out;
+
+  aes_sbox sbox0 (
+    .U(sbox0_in),
+    .dec(1'b0),
+    .S(sbox0_out)
+  );
+
+  aes_sbox sbox1 (
+    .U(sbox1_in),
+    .dec(1'b0),
+    .S(sbox1_out)
+  );
+
+  aes_sbox sbox2 (
+    .U(sbox2_in),
+    .dec(1'b0),
+    .S(sbox2_out)
+  );
+
+  aes_sbox sbox3 (
+    .U(sbox3_in),
+    .dec(1'b0),
+    .S(sbox3_out)
+  );
+
+  assign sbox0_in =
+    (run_sbox == 2'b01 ? register_file[0] :
+    (run_sbox == 2'b10 ? register_file[0] ^ register_file[4] : 8'h00));
+
+  assign sbox1_in =
+    (run_sbox == 2'b01 ? register_file[1] :
+    (run_sbox == 2'b10 ? register_file[1] ^ register_file[5] : 8'h00));
+
+  assign sbox2_in =
+    (run_sbox == 2'b01 ? register_file[2] :
+    (run_sbox == 2'b10 ? register_file[2] ^ register_file[6] : 8'h00));
+
+  assign sbox3_in =
+    (run_sbox == 2'b01 ? register_file[3] :
+    (run_sbox == 2'b10 ? register_file[3] ^ register_file[7] : 8'h00));
+
+  always @(posedge clk or negedge rst_n) begin : p_main
+    if (!rst_n) begin
+      register_file[0] <= 8'h0;
+      register_file[1] <= 8'h0;
+      register_file[2] <= 8'h0;
+      register_file[3] <= 8'h0;
+      register_file[4] <= 8'h0;
+      register_file[5] <= 8'h0;
+      register_file[6] <= 8'h0;
+      register_file[7] <= 8'h0;
+      register_file[8] <= 8'h0;
+      register_file[9] <= 8'h0;
+      register_file[10] <= 8'h0;
+      register_file[11] <= 8'h0;
+
+      io_out <= 8'h0;
+      io_ready <= 1'b0;
+      trig <= 1'b0;
+
+      run_sbox <= 2'b0;
+      run_sbox_next <= 1'b0;
+    end else begin
+      io_ready <= 1;
+
+      if (io_clk) begin
+        if (!io_we) begin
+          case (io_addr)
+            63: begin
+              run_sbox_next <= 1'b1;
+            end
+
+            default: begin
+              register_file[io_addr[3:0]] <= uio_in;
+            end
+          endcase
+        end else begin
+          case (io_addr)
+            63: begin
+              io_out <= 8'h0;
+            end
+
+            default: begin
+              io_out <= register_file[io_addr[3:0]];
+            end
+          endcase
+        end
+      end else begin
+        if (run_sbox_next == 1'b1 && run_sbox == 2'b00) begin
+          run_sbox <= 2'b01;
+        end else if (run_sbox == 2'b01) begin
+          run_sbox_next <= 1'b0;
+          run_sbox <= 2'b10;
+
+          register_file[8] <= sbox0_out;
+          register_file[9] <= sbox1_out;
+          register_file[10] <= sbox2_out;
+          register_file[11] <= sbox3_out;
+        end else begin
+          run_sbox <= 2'b00;
+
+          register_file[8] <= sbox0_out;
+          register_file[9] <= sbox1_out;
+          register_file[10] <= sbox2_out;
+          register_file[11] <= sbox3_out;
+        end
+      end
+    end
+  end
 
 endmodule
