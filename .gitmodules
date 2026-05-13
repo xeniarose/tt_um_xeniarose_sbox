@@ -1,0 +1,6 @@
+[submodule "tt"]
+	path = tt
+	url = https://github.com/TinyTapeout/tt-support-tools
+[submodule "librelane"]
+	path = librelane
+	url = https://github.com/librelane/librelane.git

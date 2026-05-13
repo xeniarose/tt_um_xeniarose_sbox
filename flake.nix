@@ -1,49 +1,59 @@
 {
   description = "Flake to support ttsky project";
 
-  outputs = { self, dragnpkgs } @ inputs: dragnpkgs.lib.mkFlake {
-    devShells.default =
-    {
-      lib,
-      mkShell,
+  inputs = {
+    self.submodules = true;
 
-      verilator,
-      iverilog,
-      gtkwave,
+    librelane.url = "path:librelane";
+  };
 
-      python313,
-    }: mkShell {
-      name = "tt";
+  outputs = { self, librelane } @ inputs: let
+    nixpkgs = librelane.inputs.nix-eda.inputs.nixpkgs;
+    forAllSystems = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed;
+  in {
+    devShells = forAllSystems (system: {
+      default = librelane.legacyPackages.${system}.callPackage (
+        {
+          lib,
+          writeShellScriptBin,
+          librelane-shell,
+        }: librelane-shell.override {
+          extra-packages = [
+            (writeShellScriptBin "yowasp-yosys" ''
+              exec yosys "$@"
+            '')
+          ];
 
-      packages = [
-        verilator
-        gtkwave
-        iverilog
+          extra-python-packages = (ps: with ps; [
+            ipython
 
-        (python313.withPackages (ps: with ps; [
-          ipython
+            numpy
+            scipy
+            matplotlib
+            pandas
+            pyqt6
+            pyqt6-sip
+            scikit-learn
+            networkx
+            pycryptodome
 
-          numpy
-          scipy
-          matplotlib
-          pandas
-          pyqt6
-          pyqt6-sip
-          scikit-learn
-          networkx
-          pycryptodome
+            tqdm
 
-          tqdm
+            cocotb
+            pytest
 
-          yosys
-
-          cocotb
-          pytest
-        ]))
-      ];
-
-      shellHook = ''
-      '';
-    };
+            # tt deps
+            cairosvg
+            chevron
+            gdstk
+            gitpython
+            mistune
+            python-frontmatter
+            pyyaml
+            requests
+            configupdater
+          ]);
+        }) {};
+      });
   };
 }
