@@ -22,7 +22,7 @@ module tt_um_xeniarose_sbox (
   wire io_clk = ui_in[7];
 
   reg io_ready;
-  reg trig;
+  wire trig;
 
   assign uo_out[0] = io_ready;
   assign uo_out[1] = io_we;
@@ -45,8 +45,27 @@ module tt_um_xeniarose_sbox (
   (* mem2reg *)
   reg [7:0] register_file [11:0];
 
+  initial begin
+    $dumpfile("tb.fst");
+    $dumpvars(0, tt_um_xeniarose_sbox);
+    $dumpvars(0, register_file[0]);
+    $dumpvars(0, register_file[1]);
+    $dumpvars(0, register_file[2]);
+    $dumpvars(0, register_file[3]);
+    $dumpvars(0, register_file[4]);
+    $dumpvars(0, register_file[5]);
+    $dumpvars(0, register_file[6]);
+    $dumpvars(0, register_file[7]);
+    $dumpvars(0, register_file[8]);
+    $dumpvars(0, register_file[9]);
+    $dumpvars(0, register_file[10]);
+    $dumpvars(0, register_file[11]);
+  end
+
   reg [1:0] run_sbox;
   reg run_sbox_next;
+
+  assign trig = (run_sbox != 2'b00);
 
   wire [7:0] sbox0_in;
   wire [7:0] sbox0_out;
@@ -114,7 +133,6 @@ module tt_um_xeniarose_sbox (
 
       io_out <= 8'h0;
       io_ready <= 1'b0;
-      trig <= 1'b0;
 
       run_sbox <= 2'b0;
       run_sbox_next <= 1'b0;
@@ -154,7 +172,7 @@ module tt_um_xeniarose_sbox (
           register_file[9] <= sbox1_out;
           register_file[10] <= sbox2_out;
           register_file[11] <= sbox3_out;
-        end else begin
+        end else if (run_sbox == 2'b10) begin
           run_sbox <= 2'b00;
 
           register_file[8] <= sbox0_out;
