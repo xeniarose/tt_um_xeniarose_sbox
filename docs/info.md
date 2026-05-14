@@ -9,12 +9,12 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Explain how your project works
+Implementation of AES S-Box circuits using a direct computation rather than lookup table.
 
 ## How to test
 
-Explain how to use your project
+See tests/test.py for the I/O sequences needed to interact with the design.
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+None
