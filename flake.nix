@@ -17,11 +17,17 @@
           lib,
           writeShellScriptBin,
           librelane-shell,
+
+          nextpnrWithGui,
+          icestorm,
         }: librelane-shell.override {
           extra-packages = [
             (writeShellScriptBin "yowasp-yosys" ''
               exec yosys "$@"
             '')
+
+            nextpnrWithGui
+            icestorm
           ];
 
           extra-python-packages = (ps: with ps; [

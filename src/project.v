@@ -43,7 +43,7 @@ module tt_um_xeniarose_sbox (
   assign uio_out = io_out;
 
   (* mem2reg *)
-  reg [7:0] register_file [11:0];
+  reg [7:0] register_file [29:0];
 
   initial begin
     $dumpfile("tb.fst");
@@ -60,10 +60,29 @@ module tt_um_xeniarose_sbox (
     $dumpvars(0, register_file[9]);
     $dumpvars(0, register_file[10]);
     $dumpvars(0, register_file[11]);
+    $dumpvars(0, register_file[12]);
+    $dumpvars(0, register_file[13]);
+    $dumpvars(0, register_file[14]);
+    $dumpvars(0, register_file[15]);
+    $dumpvars(0, register_file[16]);
+    $dumpvars(0, register_file[17]);
+    $dumpvars(0, register_file[18]);
+    $dumpvars(0, register_file[19]);
+    $dumpvars(0, register_file[20]);
+    $dumpvars(0, register_file[21]);
+    $dumpvars(0, register_file[22]);
+    $dumpvars(0, register_file[23]);
+    $dumpvars(0, register_file[24]);
+    $dumpvars(0, register_file[25]);
+    $dumpvars(0, register_file[26]);
+    $dumpvars(0, register_file[27]);
+    $dumpvars(0, register_file[28]);
+    $dumpvars(0, register_file[29]);
   end
 
   reg [1:0] run_sbox;
   reg run_sbox_next;
+  reg run_present_next;
 
   assign trig = (run_sbox != 2'b00);
 
@@ -116,6 +135,15 @@ module tt_um_xeniarose_sbox (
     (run_sbox == 2'b01 ? register_file[3] :
     (run_sbox == 2'b10 ? register_file[3] ^ register_file[7] : 8'h00));
 
+  wire [63:0] present_ct;
+  present present_inst (
+    .clk(clk),
+    .load(run_present_next),
+    .key({register_file[21], register_file[20], register_file[19], register_file[18], register_file[17], register_file[16], register_file[15], register_file[14], register_file[13], register_file[12]}),
+    .pt({register_file[29], register_file[28], register_file[27], register_file[26], register_file[25], register_file[24],register_file[23], register_file[22]}),
+    .ct(present_ct)
+  );
+
   always @(posedge clk or negedge rst_n) begin : p_main
     if (!rst_n) begin
       register_file[0] <= 8'h0;
@@ -130,12 +158,31 @@ module tt_um_xeniarose_sbox (
       register_file[9] <= 8'h0;
       register_file[10] <= 8'h0;
       register_file[11] <= 8'h0;
+      register_file[12] <= 8'h0;
+      register_file[13] <= 8'h0;
+      register_file[14] <= 8'h0;
+      register_file[15] <= 8'h0;
+      register_file[16] <= 8'h0;
+      register_file[17] <= 8'h0;
+      register_file[18] <= 8'h0;
+      register_file[19] <= 8'h0;
+      register_file[20] <= 8'h0;
+      register_file[21] <= 8'h0;
+      register_file[22] <= 8'h0;
+      register_file[23] <= 8'h0;
+      register_file[24] <= 8'h0;
+      register_file[25] <= 8'h0;
+      register_file[26] <= 8'h0;
+      register_file[27] <= 8'h0;
+      register_file[28] <= 8'h0;
+      register_file[29] <= 8'h0;
 
       io_out <= 8'h0;
       io_ready <= 1'b0;
 
       run_sbox <= 2'b0;
       run_sbox_next <= 1'b0;
+      run_present_next <= 1'b0;
     end else begin
       io_ready <= 1;
 
@@ -145,9 +192,12 @@ module tt_um_xeniarose_sbox (
             63: begin
               run_sbox_next <= 1'b1;
             end
+            62: begin
+              run_present_next <= 1'b1;
+            end
 
             default: begin
-              register_file[io_addr[3:0]] <= uio_in;
+              register_file[io_addr[4:0]] <= uio_in;
             end
           endcase
         end else begin
@@ -155,14 +205,28 @@ module tt_um_xeniarose_sbox (
             63: begin
               io_out <= 8'h0;
             end
+            62: begin
+              io_out <= 8'h0;
+            end
+
+            30: io_out <= present_ct[7:0];
+            31: io_out <= present_ct[15:8];
+            32: io_out <= present_ct[23:16];
+            33: io_out <= present_ct[31:24];
+            34: io_out <= present_ct[39:32];
+            35: io_out <= present_ct[47:40];
+            36: io_out <= present_ct[55:48];
+            37: io_out <= present_ct[63:56];
 
             default: begin
-              io_out <= register_file[io_addr[3:0]];
+              io_out <= register_file[io_addr[4:0]];
             end
           endcase
         end
       end else begin
-        if (run_sbox_next == 1'b1 && run_sbox == 2'b00) begin
+        if (run_present_next == 1'b1) begin
+          run_present_next <= 1'b0;
+        end else if (run_sbox_next == 1'b1 && run_sbox == 2'b00) begin
           run_sbox <= 2'b01;
         end else if (run_sbox == 2'b01) begin
           run_sbox_next <= 1'b0;

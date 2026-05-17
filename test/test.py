@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import struct
+import os
 
 import cocotb
 from cocotb.clock import Clock
@@ -77,7 +78,7 @@ async def io_read(dut, meta: TestMeta, addr: int) -> int:
     return word
 
 
-async def io_trigger(dut, meta: TestMeta) -> None:
+async def io_trigger(dut, meta: TestMeta, val=63) -> None:
     if meta.mode != MODE_WRITE:
         dut.ui_in.value = 0
         await ClockCycles(dut.clk, meta.io_dly)
@@ -87,10 +88,10 @@ async def io_trigger(dut, meta: TestMeta) -> None:
         await ClockCycles(dut.clk, meta.io_dly)
 
     dut.uio_in.value = 0
-    dut.ui_in.value = IO_CLK | 63
+    dut.ui_in.value = IO_CLK | (val)
     await ClockCycles(dut.clk, meta.io_dly)
     dut.uio_in.value = 0
-    dut.ui_in.value = 63
+    dut.ui_in.value = (val)
     await ClockCycles(dut.clk, meta.io_dly)
 
 
@@ -101,7 +102,7 @@ async def test_init(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, units="us")
+    clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
     # Reset
@@ -122,7 +123,7 @@ async def test_registers(dut):
     meta = await test_init(dut)
     dut._log.info("Test registers")
 
-    for addr in range(0, 12):
+    for addr in range(0, 30):
         dut._log.info("Test register %s", addr)
         for val in [0x13, 0x12, 0x06, 0x21, 0x00, 0xff, 0x55, 0xaa, 0x99, 0x66]:
             await io_write(dut, meta, addr, val)
@@ -135,7 +136,7 @@ async def test_registers_long(dut):
     meta.io_dly = 13
     dut._log.info("Test registers")
 
-    for addr in range(0, 12):
+    for addr in range(0, 30):
         dut._log.info("Test register %s", addr)
         for val in [0x13, 0x12, 0x06, 0x21, 0x00, 0xff, 0x55, 0xaa, 0x99, 0x66]:
             await io_write(dut, meta, addr, val)
@@ -189,3 +190,163 @@ async def test_aes_sbox(dut):
         assert (await io_read(dut, meta, 9)) == SBOX[b ^ f]
         assert (await io_read(dut, meta, 10)) == SBOX[c ^ g]
         assert (await io_read(dut, meta, 11)) == SBOX[d ^ h]
+
+
+@cocotb.test()
+async def test_aes_sbox2(dut):
+    meta = await test_init(dut)
+    dut._log.info("Test sbox")
+
+    k0 = [227, 193, 69, 100, 12, 198, 78, 40, 193, 197, 29, 203, 98, 245, 252, 4, 237, 73, 62, 57, 3, 30, 69, 16, 181, 58, 209, 205, 161, 181, 7, 77]
+    k1 = [183, 152, 86, 174, 90, 78, 137, 230, 103, 34, 103, 128, 198, 11, 225, 20, 245, 163, 123, 201, 15, 230, 211, 0, 43, 77, 170, 157, 73, 11, 84, 250]
+    k2 = [28, 100, 213, 25, 118, 60, 251, 118, 216, 172, 245, 92, 22, 155, 151, 6, 232, 113, 39, 111, 120, 159, 30, 131, 45, 125, 18, 245, 66, 9, 222, 212]
+    k3 = [97, 64, 42, 103, 118, 28, 169, 128, 252, 69, 145, 74, 43, 71, 168, 162, 147, 133, 186, 210, 144, 118, 48, 35, 192, 252, 67, 18, 116, 14, 28, 153]
+    p0 = [108, 116, 175, 5, 131, 141, 165, 167, 192, 67, 143, 221, 47, 43, 171, 73, 73, 57, 251, 108, 158, 31, 206, 187, 23, 200, 116, 129, 233, 182, 64, 100]
+    p1 = [29, 27, 187, 59, 122, 115, 126, 197, 182, 137, 208, 53, 184, 244, 104, 197, 79, 56, 215, 212, 117, 191, 215, 65, 31, 32, 63, 87, 253, 129, 201, 158]
+    p2 = [55, 131, 249, 215, 14, 37, 31, 146, 179, 12, 96, 77, 170, 92, 201, 126, 175, 123, 52, 183, 221, 254, 161, 250, 27, 222, 42, 46, 53, 216, 143, 176]
+    p3 = [43, 192, 125, 51, 139, 108, 116, 121, 57, 74, 112, 43, 91, 10, 251, 143, 29, 13, 164, 133, 210, 100, 225, 77, 41, 241, 189, 80, 47, 217, 75, 7]
+
+    gates = os.environ.get("GATES", "?") == "yes"
+
+    for a,b,c,d,e,f,g,h in zip(k0, k1, k2, k3, p0, p1, p2, p3):
+        await io_write(dut, meta, 0, a)
+        await io_write(dut, meta, 1, b)
+        await io_write(dut, meta, 2, c)
+        await io_write(dut, meta, 3, d)
+        await io_write(dut, meta, 4, e)
+        await io_write(dut, meta, 5, f)
+        await io_write(dut, meta, 6, g)
+        await io_write(dut, meta, 7, h)
+
+        dut.uio_in.value = 0
+        dut.ui_in.value = IO_CLK | 63
+        await ClockCycles(dut.clk, 1)
+        dut.uio_in.value = 0
+        dut.ui_in.value = 63
+        await ClockCycles(dut.clk, 3)
+
+        if not gates:
+            assert int(dut.user_project["\\register_file[8]"].value) == SBOX[a]
+            assert int(dut.user_project["\\register_file[9]"].value) == SBOX[b]
+            assert int(dut.user_project["\\register_file[10]"].value) == SBOX[c]
+            assert int(dut.user_project["\\register_file[11]"].value) == SBOX[d]
+        else:
+            assert (
+                (int(dut.user_project["\\register_file[8][0]"].value) << 0) |
+                (int(dut.user_project["\\register_file[8][1]"].value) << 1) |
+                (int(dut.user_project["\\register_file[8][2]"].value) << 2) |
+                (int(dut.user_project["\\register_file[8][3]"].value) << 3) |
+                (int(dut.user_project["\\register_file[8][4]"].value) << 4) |
+                (int(dut.user_project["\\register_file[8][5]"].value) << 5) |
+                (int(dut.user_project["\\register_file[8][6]"].value) << 6) |
+                (int(dut.user_project["\\register_file[8][7]"].value) << 7)) == SBOX[a]
+            assert (
+                (int(dut.user_project["\\register_file[9][0]"].value) << 0) |
+                (int(dut.user_project["\\register_file[9][1]"].value) << 1) |
+                (int(dut.user_project["\\register_file[9][2]"].value) << 2) |
+                (int(dut.user_project["\\register_file[9][3]"].value) << 3) |
+                (int(dut.user_project["\\register_file[9][4]"].value) << 4) |
+                (int(dut.user_project["\\register_file[9][5]"].value) << 5) |
+                (int(dut.user_project["\\register_file[9][6]"].value) << 6) |
+                (int(dut.user_project["\\register_file[9][7]"].value) << 7)) == SBOX[b]
+            assert (
+                (int(dut.user_project["\\register_file[10][0]"].value) << 0) |
+                (int(dut.user_project["\\register_file[10][1]"].value) << 1) |
+                (int(dut.user_project["\\register_file[10][2]"].value) << 2) |
+                (int(dut.user_project["\\register_file[10][3]"].value) << 3) |
+                (int(dut.user_project["\\register_file[10][4]"].value) << 4) |
+                (int(dut.user_project["\\register_file[10][5]"].value) << 5) |
+                (int(dut.user_project["\\register_file[10][6]"].value) << 6) |
+                (int(dut.user_project["\\register_file[10][7]"].value) << 7)) == SBOX[c]
+            assert (
+                (int(dut.user_project["\\register_file[11][0]"].value) << 0) |
+                (int(dut.user_project["\\register_file[11][1]"].value) << 1) |
+                (int(dut.user_project["\\register_file[11][2]"].value) << 2) |
+                (int(dut.user_project["\\register_file[11][3]"].value) << 3) |
+                (int(dut.user_project["\\register_file[11][4]"].value) << 4) |
+                (int(dut.user_project["\\register_file[11][5]"].value) << 5) |
+                (int(dut.user_project["\\register_file[11][6]"].value) << 6) |
+                (int(dut.user_project["\\register_file[11][7]"].value) << 7)) == SBOX[d]
+
+        await ClockCycles(dut.clk, 1)
+
+        if not gates:
+            assert int(dut.user_project["\\register_file[8]"].value) == SBOX[a ^ e]
+            assert int(dut.user_project["\\register_file[9]"].value) == SBOX[b ^ f]
+            assert int(dut.user_project["\\register_file[10]"].value) == SBOX[c ^ g]
+            assert int(dut.user_project["\\register_file[11]"].value) == SBOX[d ^ h]
+        else:
+            assert (
+                (int(dut.user_project["\\register_file[8][0]"].value) << 0) |
+                (int(dut.user_project["\\register_file[8][1]"].value) << 1) |
+                (int(dut.user_project["\\register_file[8][2]"].value) << 2) |
+                (int(dut.user_project["\\register_file[8][3]"].value) << 3) |
+                (int(dut.user_project["\\register_file[8][4]"].value) << 4) |
+                (int(dut.user_project["\\register_file[8][5]"].value) << 5) |
+                (int(dut.user_project["\\register_file[8][6]"].value) << 6) |
+                (int(dut.user_project["\\register_file[8][7]"].value) << 7)) == SBOX[a ^ e]
+            assert (
+                (int(dut.user_project["\\register_file[9][0]"].value) << 0) |
+                (int(dut.user_project["\\register_file[9][1]"].value) << 1) |
+                (int(dut.user_project["\\register_file[9][2]"].value) << 2) |
+                (int(dut.user_project["\\register_file[9][3]"].value) << 3) |
+                (int(dut.user_project["\\register_file[9][4]"].value) << 4) |
+                (int(dut.user_project["\\register_file[9][5]"].value) << 5) |
+                (int(dut.user_project["\\register_file[9][6]"].value) << 6) |
+                (int(dut.user_project["\\register_file[9][7]"].value) << 7)) == SBOX[b ^ f]
+            assert (
+                (int(dut.user_project["\\register_file[10][0]"].value) << 0) |
+                (int(dut.user_project["\\register_file[10][1]"].value) << 1) |
+                (int(dut.user_project["\\register_file[10][2]"].value) << 2) |
+                (int(dut.user_project["\\register_file[10][3]"].value) << 3) |
+                (int(dut.user_project["\\register_file[10][4]"].value) << 4) |
+                (int(dut.user_project["\\register_file[10][5]"].value) << 5) |
+                (int(dut.user_project["\\register_file[10][6]"].value) << 6) |
+                (int(dut.user_project["\\register_file[10][7]"].value) << 7)) == SBOX[c ^ g]
+            assert (
+                (int(dut.user_project["\\register_file[11][0]"].value) << 0) |
+                (int(dut.user_project["\\register_file[11][1]"].value) << 1) |
+                (int(dut.user_project["\\register_file[11][2]"].value) << 2) |
+                (int(dut.user_project["\\register_file[11][3]"].value) << 3) |
+                (int(dut.user_project["\\register_file[11][4]"].value) << 4) |
+                (int(dut.user_project["\\register_file[11][5]"].value) << 5) |
+                (int(dut.user_project["\\register_file[11][6]"].value) << 6) |
+                (int(dut.user_project["\\register_file[11][7]"].value) << 7)) == SBOX[d ^ h]
+
+        await ClockCycles(dut.clk, 10)
+
+        assert (await io_read(dut, meta, 8)) == SBOX[a ^ e]
+        assert (await io_read(dut, meta, 9)) == SBOX[b ^ f]
+        assert (await io_read(dut, meta, 10)) == SBOX[c ^ g]
+        assert (await io_read(dut, meta, 11)) == SBOX[d ^ h]
+
+
+@cocotb.test()
+async def test_present(dut):
+    meta = await test_init(dut)
+    dut._log.info("Test present")
+
+    vecs = [
+        (0x0000000000000000, 0x00000000000000000000, 0x5579C1387B228445),
+        (0x0000000000000000, 0xFFFFFFFFFFFFFFFFFFFF, 0xE72C46C0F5945049),
+        (0xFFFFFFFFFFFFFFFF, 0x00000000000000000000, 0xA112FFC72F68417B),
+        (0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFFFFFF, 0x3333DCD3213210D2),
+    ]
+
+    for (pt, key, ct) in vecs:
+        for i in range(12, 22):
+            await io_write(dut, meta, i, (key >> ((i-12)*8)&0xFF))
+
+        for i in range(22, 30):
+            await io_write(dut, meta, i, (pt >> ((i-22)*8)&0xFF))
+
+        await io_trigger(dut, meta, 62)
+
+        await ClockCycles(dut.clk, 32)
+
+        ct_chk = 0
+        for i in range(30, 38):
+            ct_chk |= (await io_read(dut, meta, i)) << ((i-30)*8)
+
+        print(hex(key), hex(pt), hex(ct), hex(ct_chk))
+        assert ct_chk == ct
