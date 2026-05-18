@@ -1,9 +1,9 @@
 # Tiny Tapeout project information
 project:
-  title:        "AES S-Box"      # Project title
+  title:        "AES S-Box / PRESENT"      # Project title
   author:       "xeniarose"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  "AES forward S-Box circuits"      # One line description of what your project does
+  description:  "AES forward S-Box circuits, and also PRESENT"      # One line description of what your project does
   language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
   clock_hz:     10_000_000       # Clock frequency in Hz (or 0 if not applicable)
 
